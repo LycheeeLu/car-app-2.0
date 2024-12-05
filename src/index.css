@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 260 20% 98%;
+    --foreground: 262 45% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 262 45% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 45% 15%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 260 20% 96%;
+    --secondary-foreground: 262 45% 15%;
+    --muted: 260 20% 96%;
+    --muted-foreground: 262 30% 45%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 262 45% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 260 20% 92%;
+    --input: 260 20% 92%;
+    --ring: 262 83% 58%;
+    --radius: 0.75rem;
+  }
+ 
+  .dark {
+    --background: 262 45% 5%;
+    --foreground: 260 20% 98%;
+    --card: 262 45% 5%;
+    --card-foreground: 260 20% 98%;
+    --popover: 262 45% 5%;
+    --popover-foreground: 260 20% 98%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 262 45% 15%;
+    --secondary: 262 40% 12%;
+    --secondary-foreground: 260 20% 98%;
+    --muted: 262 40% 12%;
+    --muted-foreground: 260 20% 65%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 260 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 260 20% 98%;
+    --border: 262 40% 12%;
+    --input: 262 40% 12%;
+    --ring: 262 83% 58%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  .glass-panel {
+    @apply bg-white/80 dark:bg-background/20 backdrop-blur-lg border border-border/50 
+           shadow-lg shadow-purple-500/5 dark:shadow-purple-500/10 rounded-xl transition-all duration-300
+           hover:shadow-purple-500/10 dark:hover:shadow-purple-500/20;
+  }
+
+  .status-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .control-button {
+    @apply px-4 py-2 rounded-lg transition-all duration-200 
+           hover:scale-105 active:scale-95 disabled:opacity-50 
+           disabled:cursor-not-allowed focus:outline-none 
+           focus:ring-2 focus:ring-offset-2 focus:ring-purple-500
+           dark:focus:ring-purple-400 animate-fade-in
+           bg-gradient-to-br from-purple-500/90 to-purple-600/90
+           hover:from-purple-500 hover:to-purple-600
+           text-white font-medium;
+  }
+}
