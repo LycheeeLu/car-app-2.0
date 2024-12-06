@@ -12,20 +12,11 @@ interface WaypointMapProps {
   onAddWaypoint: (coordinate: Coordinate) => void;
 }
 
-// You might want to move this interface to a separate types file
-interface CarStatus {
-  coordinate: Coordinate;
-  timestamp: number;
-}
-
 export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [points, setPoints] = useState<Coordinate[]>([]);
   const [carPosition, setCarPosition] = useState<Coordinate | null>(null);
   const [isMoving, setIsMoving] = useState(false);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [carStatus, setCarStatus] = useState<CarStatus | null>(null);
-  const [isGettingCarLocation, setIsGettingCarLocation] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -86,61 +77,20 @@ export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
     toast.success("Route completed!");
   };
 
-  const getCurrentLocation = () => {
-    setIsGettingLocation(true);
-    
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      setIsGettingLocation(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newPoint = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setPoints([newPoint]); // Reset points and set current location as first point
-        onAddWaypoint(newPoint);
-        toast.success("Current location added as starting point");
-        setIsGettingLocation(false);
-      },
-      (error) => {
-        toast.error("Unable to retrieve your location");
-        setIsGettingLocation(false);
-      }
-    );
-  };
-
-  // Simulated function to get car's location - replace this with your actual API call
-  const getCarLocation = async () => {
-    setIsGettingCarLocation(true);
+  const handleClearAll = async () => {
+    setPoints([]);
     try {
-      // Replace this with your actual API call to get car's coordinates
-      const response = await fetch('your-car-api-endpoint/location');
-      const data = await response.json();
-      
-      // For now, using mock data
-      const mockCarStatus: CarStatus = {
-        coordinate: {
-          lat: 37.7749, // Replace with actual car coordinates
-          lng: -122.4194
+      // Send 'c' command to Arduino
+      await fetch('http://localhost:3001/command', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        timestamp: Date.now()
-      };
-      
-      setCarStatus(mockCarStatus);
-      toast.success("Car location updated");
-      
-      // Optionally update car position on the map
-      setCarPosition(mockCarStatus.coordinate);
-      
+        body: JSON.stringify({ command: 'c' }),
+      });
+      toast.success("Cleared all waypoints and sent clear command to car");
     } catch (error) {
-      toast.error("Failed to get car location");
-      console.error("Error fetching car location:", error);
-    } finally {
-      setIsGettingCarLocation(false);
+      toast.error("Failed to send clear command to car");
     }
   };
 
@@ -148,22 +98,6 @@ export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
     <div className="glass-panel rounded-xl p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Visual Waypoint Map</h2>
-        <div className="flex gap-2">
-          <Button 
-            onClick={getCurrentLocation}
-            disabled={isGettingLocation}
-            variant="outline"
-          >
-            {isGettingLocation ? "Getting Location..." : "Use Current Location"}
-          </Button>
-          <Button 
-            onClick={getCarLocation}
-            disabled={isGettingCarLocation}
-            variant="outline"
-          >
-            {isGettingCarLocation ? "Fetching..." : "Get Car Location"}
-          </Button>
-        </div>
       </div>
 
       <div
@@ -236,24 +170,25 @@ export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
         )}
       </div>
 
-      {/* Add car status display */}
-      {carStatus && (
-        <div className="text-sm text-muted-foreground">
-          <p>Car Location: {carStatus.coordinate.lat.toFixed(6)}, {carStatus.coordinate.lng.toFixed(6)}</p>
-          <p>Last Updated: {new Date(carStatus.timestamp).toLocaleTimeString()}</p>
-        </div>
-      )}
-
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
-          Use current location, get car location, or click anywhere on the map to add waypoints.
+          Click anywhere on the map to add waypoints.
         </p>
-        <Button 
-          onClick={startCarMovement}
-          disabled={points.length < 2 || isMoving}
-        >
-          {isMoving ? "Moving..." : "Start Movement"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleClearAll} 
+            variant="destructive"
+            disabled={isMoving}
+          >
+            Clear All
+          </Button>
+          <Button 
+            onClick={startCarMovement}
+            disabled={points.length < 2 || isMoving}
+          >
+            {isMoving ? "Moving..." : "Start Movement"}
+          </Button>
+        </div>
       </div>
     </div>
   );
