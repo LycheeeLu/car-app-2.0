@@ -1,8 +1,10 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Car, History, Trash, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
-import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 interface Coordinate {
   lat: number;
@@ -15,35 +17,76 @@ interface WaypointMapProps {
 
 const defaultCenter = {
   lat: 61.05871,
-  lng: 28.18871 //center set to lappenranta city center
+  lng: 28.18871
 };
 
-const mapContainerStyle = {
-  width: '100%',
-  height: '500px'
-};
+// Fix for default marker icons in Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
-const options = {
-  disableDefaultUI: true,
-  zoomControl: true,
-};
+// Custom Map Click Handler Component
+function MapClickHandler({ onMapClick }: { onMapClick: (e: L.LeafletMouseEvent) => void }) {
+  useMapEvents({
+    click: onMapClick,
+  });
+  return null;
+}
+
+// Custom Center Control Component
+function CenterControl() {
+  const map = useMap();
+  
+  const centerOnUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          map.setView(pos, 15);
+        },
+        () => {
+          toast.error("Error: The Geolocation service failed.");
+        }
+      );
+    } else {
+      toast.error("Error: Your browser doesn't support geolocation.");
+    }
+  };
+
+  return (
+    <Button
+      onClick={centerOnUserLocation}
+      className="absolute top-4 right-4 z-[1000]"
+      title="Center on my location"
+    >
+      <MapPin className="w-5 h-5" />
+    </Button>
+  );
+}
+
+// Add this custom car icon definition near the top of the file
+const carIcon = L.divIcon({
+  className: 'car-marker',
+  html: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
 
 export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
   const [points, setPoints] = useState<Coordinate[]>([]);
   const [carPosition, setCarPosition] = useState<Coordinate | null>(null);
   const [isMoving, setIsMoving] = useState(false);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-  });
-
-  const onMapClick = useCallback((e: google.maps.MapMouseEvent) => {
-    if (!e.latLng) return;
-    
+  const onMapClick = useCallback((e: L.LeafletMouseEvent) => {
     const newPoint = {
-      lat: e.latLng.lat(),
-      lng: e.latLng.lng(),
+      lat: e.latlng.lat,
+      lng: e.latlng.lng,
     };
     
     setPoints(prev => [...prev, newPoint]);
@@ -113,81 +156,47 @@ export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
     toast.success("Route completed!");
   };
 
-  const centerOnUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const pos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          map?.panTo(pos);
-          map?.setZoom(15);
-        },
-        () => {
-          toast.error("Error: The Geolocation service failed.");
-        }
-      );
-    } else {
-      toast.error("Error: Your browser doesn't support geolocation.");
-    }
-  };
-
-  if (loadError) {
-    return <div>Error loading maps</div>;
-  }
-
-  if (!isLoaded) {
-    return <div>Loading maps...</div>;
-  }
-
   return (
     <div className="glass-panel rounded-xl p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Visual Waypoint Map</h2>
       </div>
 
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={defaultCenter}
-        zoom={14}
-        onClick={onMapClick}
-        options={options}
-        onLoad={map => setMap(map)}
-      >
-        {/* Waypoint markers */}
-        {points.map((point, index) => (
-          <Marker
-            key={`point-${index}`}
-            position={point}
-            label={(index + 1).toString()}
+      <div style={{ height: '500px', width: '100%' }}>
+        <MapContainer
+          center={[defaultCenter.lat, defaultCenter.lng]}
+          zoom={14}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      
           />
-        ))}
+          <MapClickHandler onMapClick={onMapClick} />
+          <CenterControl />
 
-        {/* Connecting lines between waypoints */}
-        <Polyline
-          path={points}
-          options={{
-            strokeColor: '#FF0000',
-            strokeOpacity: 1.0,
-            strokeWeight: 2,
-          }}
-        />
+          {points.map((point, index) => (
+            <Marker
+              key={`point-${index}`}
+              position={[point.lat, point.lng]}
+            />
+          ))}
 
-        {/* Car marker */}
-        {carPosition && (
-          <Marker
-            position={carPosition}
-            icon={{
-              path: "M8 12L8 8C8 4.68629 10.6863 2 14 2V2C17.3137 2 20 4.68629 20 8L20 12",
-              fillColor: "#4285F4",
-              fillOpacity: 1,
-              strokeWeight: 1,
-              scale: 2,
-            }}
-          />
-        )}
-      </GoogleMap>
+          {points.length > 1 && (
+            <Polyline
+              positions={points.map(point => [point.lat, point.lng])}
+          
+            />
+          )}
+
+          {carPosition && (
+            <Marker
+              position={[carPosition.lat, carPosition.lng]}
+              icon={carIcon}
+            />
+          )}
+        </MapContainer>
+      </div>
 
       <div className="flex justify-between items-center">
         <div className="flex gap-2">
@@ -216,14 +225,6 @@ export const WaypointMap = ({ onAddWaypoint }: WaypointMapProps) => {
           {isMoving ? "Moving..." : "Start Movement"}
         </Button>
       </div>
-
-      <Button
-        onClick={centerOnUserLocation}
-        className="absolute top-4 right-4 z-10"
-        title="Center on my location"
-      >
-        <MapPin className="w-5 h-5" />
-      </Button>
     </div>
   );
 };
